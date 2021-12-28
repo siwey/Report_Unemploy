@@ -1,0 +1,419 @@
+---
+title: "Erwerbs- und Arbeitslosigkeit in der Schweiz"
+author: "Simon Wey"
+lang: de
+date: "`r Sys.Date()`"
+output:
+  pdf_document: 
+classoption: twocolumn
+
+---
+
+
+```{r plot1, include=FALSE}
+
+library(OECD)
+library(tidyverse)
+library(echarts4r)
+library(webshot2)
+webshot::install_phantomjs()
+
+# labor market example for Switzerland
+dataset <- "STLABOUR"
+
+#dstruc <- get_data_structure(dataset)
+#df <- data.frame(dstruc$SUBJECT$id,dstruc$SUBJECT$label)
+#t <- head(dstruc)
+#dstruc$MEASURE LREMTT
+
+#LRUN55TT LRUNTTTT
+filter_list <- list(c("AUT","ITA","CHE","DEU","FRA"), 'LRUNTTTT', 'STSA', 'A')
+de <- get_dataset(dataset,filter=filter_list)
+
+sel <- de %>%
+  filter(obsTime >= 2010
+         #MEASURE == "STE"
+  ) |>
+  # let's focus on cols location, time value, because none
+  # of the other cols contain information, i.e., all their values
+  # are the same
+  
+  select(obsTime, LOCATION, obsValue)
+
+wide_out <- sel %>%
+  pivot_wider(names_from = LOCATION,
+              values_from = obsValue)
+
+myplot <- wide_out |>
+  e_charts(obsTime) |>
+  e_text_style(fontSize=30) |>
+  e_x_axis(axisLabel=list(interval=1,rotate=0, fontSize=20)) |>
+  e_y_axis(axisLabel=list(rotate=0, fontSize=20)) |>
+  e_axis_labels(
+    x = "",
+    y = "Erwerbslosenquote [%]"
+  ) |>
+  e_line(CHE, name = "Schweiz") |>
+  e_line(DEU, name = "Deutschland") |>
+  e_line(AUT, name = "Österreich") |>
+  e_line(ITA, name = "Italien") |>
+  e_line(FRA, name = "Frankreich") |>
+  #e_tooltip(trigger="axis") |>
+  e_tooltip(formatter = htmlwidgets::JS("
+      function(params){
+        return('<strong>' + params.name + 
+                '</strong><br />' + 
+                parseFloat((params.value[1] * 10) / 10).toFixed(0) +'%') 
+                }")
+  ) |>
+  e_legend(orient = 'horizontal', top = 20) #|>
+  
+
+htmlwidgets::saveWidget(widget = myplot, file ="/Users/simonwey/Repos/Report_Unemploy/Graphics/ca_gauge.html")
+
+webshot('/Users/simonwey/Repos/Report_Unemploy/Graphics/ca_gauge.html', file = '/Users/simonwey/Repos/Report_Unemploy/Graphics/myplot1.png')  
+  
+
+
+  
+```
+
+```{r plot1b, include=FALSE}
+
+rm(list=ls())
+
+library(OECD)
+library(tidyverse)
+
+# labor market example for Switzerland
+dataset <- "STLABOUR"
+
+#dstruc <- get_data_structure(dataset)
+#df <- data.frame(dstruc$SUBJECT$id,dstruc$SUBJECT$label)
+#t <- head(dstruc)
+#dstruc$MEASURE LREMTT
+
+#LRUN55TT LRUNTTTT
+filter_list <- list(c("AUT","ITA","CHE","DEU","FRA"), 'LREMTTTT', 'STSA', 'A')
+de <- get_dataset(dataset,filter=filter_list)
+
+sel <- de %>%
+  filter(obsTime >= 2010
+         #MEASURE == "STE"
+  ) |>
+  # let's focus on cols location, time value, because none
+  # of the other cols contain information, i.e., all their values
+  # are the same
+  
+  select(obsTime, LOCATION, obsValue)
+
+wide_out <- sel %>%
+  pivot_wider(names_from = LOCATION,
+              values_from = obsValue)
+
+myplot <- wide_out |>
+  e_charts(obsTime) |>
+  e_line(CHE, name = "Schweiz") |>
+  e_line(DEU, name = "Deutschland") |>
+  e_line(AUT, name = "Österreich") |>
+  e_line(ITA, name = "Italien") |>
+  e_line(FRA, name = "Frankreich") |>
+  #e_tooltip(trigger="axis") |>
+  e_y_axis(axisLabel = list(fontSize = 30,
+                            formatter = htmlwidgets::JS("
+                                                        function(params){return (params.split(' ').join('\\n'))}
+                                                        ")
+  )
+  ) |>
+  e_tooltip(formatter = htmlwidgets::JS("
+      function(params){
+        return('<strong>' + params.name + 
+                '</strong><br />' + 
+                parseFloat((params.value[1] * 10) / 10).toFixed(0) +'%') 
+                }")
+  ) |>
+  e_legend(orient = 'horizontal', top = 30) |>
+  e_format_y_axis(suffix = "%")
+
+
+htmlwidgets::saveWidget(widget = myplot, file ="/Users/simonwey/Repos/Report_Unemploy/Graphics/ca_gauge.html")
+
+webshot('/Users/simonwey/Repos/Report_Unemploy/Graphics/ca_gauge.html', file = '/Users/simonwey/Repos/Report_Unemploy/Graphics/myplot1b.png')  
+  
+  
+```
+
+```{r plot2, include=FALSE}
+
+rm(list=ls())
+setwd("/Users/simonwey/Repos/siwey.github.io/")
+library(echarts4r)
+library(viridisLite)
+library(jsonlite)
+library(tidyverse)
+library(readxl)
+  
+xlsx_exa <- read_xlsx("UE_Grossregionen.xlsx",sheet=3)#,range ="" "B36:cv43")
+#xlsx_exa <- read_excel("https://www.bfs.admin.ch/bfsstatic/dam/assets/18784196/master",range = "A3:EI11")
+xlsx_exa <- xlsx_exa[9:15,]
+#xlsx_exa <- xlsx_exa[-1,]
+names(xlsx_exa)[1] <- c("Regions")
+  
+d <- data.frame(
+  name=xlsx_exa$Regions,
+  values=xlsx_exa$...12
+)
+  
+d$values <- round(as.numeric(d$values),1)
+  
+d$name[1] <- "Région lémanique"
+d$name[7] <- "Ticino"
+  
+  
+json_ch <- jsonlite::read_json(
+    "https://raw.githubusercontent.com/mbannert/maps/master/ch_bfs_regions.geojson"
+  )
+  
+myplot <- d |>
+  e_charts(name) |>
+  e_map_register("CH", json_ch) |>
+  e_map(serie=values, map="CH") |>
+  e_text_style(fontSize=30) |>
+  e_visual_map(values, 
+                inRange=list(color=viridis(2))) |>
+  e_visual_map(values) |>
+  e_tooltip(
+  formatter = htmlwidgets::JS("
+      function(params){
+        return('<strong>' + params.name + 
+                '</strong><br />Wert: ' + parseFloat((params.value * 10) / 10).toFixed(1) +'%') 
+                }
+    ")
+  ) |>
+  e_theme("infographic") # chalk, essos, auritus, red,mint, inspired, helianthus, grey,dark-digerati, carp
+
+htmlwidgets::saveWidget(widget = myplot, file ="/Users/simonwey/Repos/Report_Unemploy/Graphics/ca_gauge.html")
+
+webshot('/Users/simonwey/Repos/Report_Unemploy/Graphics/ca_gauge.html', file = '/Users/simonwey/Repos/Report_Unemploy/Graphics/myplot2.png')
+
+```
+
+
+
+
+```{r plot3, include=FALSE}
+
+
+library(echarts4r)
+library(viridisLite)
+library(jsonlite)
+library(tidyverse)
+library(readxl)
+
+xlsx_exa <- read_excel("ALQ_Kt.xlsx",sheet=1)#,range ="" "d19:d44")
+xlsx_exa <- xlsx_exa[4:29,c(1,3)]
+
+stat <- read_excel("Kantons_Abk.xlsx",range ="a2:b27",col_names=FALSE)
+stat$...1[4]="Basel-Landschaft"
+stat$...1[16]="St. Gallen"
+#xlsx_exa <- read_excel("https://www.bfs.admin.ch/bfsstatic/dam/assets/18784196/master",range = "A3:EI11")
+
+
+names(xlsx_exa)[1] <- c("Cantons")
+
+d <- data.frame(
+  name=xlsx_exa$Cantons,
+  values=xlsx_exa$...3
+)
+#d$values <- paste(d$values, "%", sep="")
+
+d$name[25] <- "Genève"
+d$name[10] <- "Fribourg"
+d$name[24] <- "Neuchâtel"
+d$name[22] <- "Vaud"
+d$name[23] <- "Valais"
+d$name[21] <- "Ticino"
+
+
+d$name[]
+
+json_ch <- jsonlite::read_json(
+  "georef-switzerland-kanton.geojson"
+)
+
+d$values <- round(as.numeric(d$values), 3)
+
+
+a = min(d$values)
+b=max(d$values)
+
+myplot <- d |>
+  e_charts(name) |>
+  e_map_register("CH", json_ch) |>
+  e_map(serie=values, map="CH") |>
+  e_text_style(fontSize=30) |>
+  #e_visual_map(values,
+  #             inRange = list(color = viridis(3))) |>
+  e_visual_map(values) |>#,min=a,max=b) |>
+  #e_tooltip(trigger = "item",style="percent")
+  e_tooltip(
+    trigger = "item",
+    formatter = e_tooltip_choro_formatter("percent")
+  ) |>
+  e_theme("infographic")
+
+htmlwidgets::saveWidget(widget = myplot, file ="/Users/simonwey/Repos/Report_Unemploy/Graphics/ca_gauge.html")
+
+webshot('/Users/simonwey/Repos/Report_Unemploy/Graphics/ca_gauge.html', file = '/Users/simonwey/Repos/Report_Unemploy/Graphics/myplot3.png')
+
+```
+
+
+## Ein Vergleich mit dem Ausland
+
+Der sich akzentuierende Engpass an Arbeitskräften ist das Ergebnis von Entwicklungen, die sich im
+Ergebnis kumulieren und den Mangel an Arbeitskräften verschärfen. Zum einen führt die
+fortschreitende Alterung der Bevölkerung dazu, dass mehr Erwerbstätige altersbedingt aus dem
+Arbeitsmarkt ausscheiden, als Jüngere nachrücken. Zum anderen stagniert die Netto-Zuwanderung
+aus EU/Efta-Ländern in den letzten fünf Jahren auf durchschnittlich etwa 30&#39;000 Personen. Auch
+dieses Jahr liegt sie bisher trotz starkem wirtschaftlichem Aufschwung tiefer als vor einem Jahr. Dies
+hat mehrere Gründe. So verlassen potenzielle Zuwanderer ihre Heimat kaum, wenn die Wirtschaft in
+ihren Ländern floriert und sie dort ebenfalls attraktive Stellenangebote vorfinden. Ebenso ist die
+zuwanderungskritische Haltung von Teilen der Politik und der Bevölkerung in der Schweiz der
+Attraktivität als Zuwanderungsland nicht wirklich förderlich.
+
+\begin{figure}[h] \centering
+\includegraphics[width=\linewidth]{/Users/simonwey/Repos/Report_Unemploy/Graphics/myplot1.png}
+\caption{Anteil Dienstleistungsbetriebe mit Arbeitskräftemangel}
+\label{DL_Betr}
+\end{figure}
+
+Während sich also das Arbeitskräfteangebot tendenziell rückläufig entwickelt, nimmt die Nachfrage
+nach Arbeitskräften fortlaufend zu. So wurden in den letzten zehn Jahren fast eine halbe Million
+Stellen neu geschaffen und Prognosen gehen bis 2030 von einem weiteren Wachstum von gegen
+200&#39;000 Stellen aus. Eine jüngst in diesem Zusammenhang publizierte Studie geht bis 2050 alleine für
+den Kanton Zürich von einer Arbeitskräftelücke von rund 210&#39;000 Personen aus. Bisher ebenfalls
+wenig zu einer tieferen Arbeitskräftenachfrage trugen die Automatisierung und Digitalisierung bei.
+Vielmehr als die Quantität werden dadurch zudem die Qualifikationsansprüche an die
+Stellenbewerber verändert.
+\begin{figure}[h] 
+\centering
+\includegraphics[width=\linewidth]{/Users/simonwey/Repos/Report_Unemploy/Graphics/myplot1b.png}
+\caption{Say Hello}
+\label{fig:birds}
+\end{figure}
+
+## Stark gestiegener Bedarf 
+
+Die Konjunkturforschungsstelle der ETH (KOF) analysiert mit Fragebögen an Unternehmen
+ausgewählter Branchen deren konjunkturelle und arbeitsmarktliche Befindlichkeiten. Eine Frage
+erfasst dabei auch den Mangel an Arbreitskräften als Hemmnis bei der Produktion und der
+Erbringung von Dienstleistungen in Industrie- und Dienstleistungsbetrieben. Nicht weiter
+überraschend nahm dabei der Ruf nach fehlenden Fachkräften im Verlaufe der Corona-Pandemie
+zwischenzeitlich stark ab. Seit jedoch die Corona-Schutzmassnahmen zu Beginn dieses Jahres
+gelockert wurden und die Wirtschaft wieder brummt, harzt die Besetzung von Stellen mit
+Fachkräften in vielen Betrieben bereits wieder. Dies zeigt sich deutlich am oben erwähnten Indikator
+der KOF: seit Beginn des Jahres hat er für praktisch alle Branchen wieder stark zugelegt. Auffällig ist
+der starke Anstieg im Gastgewerbe (vgl. Abbildung \ref{DL_Betr}). Auch in anderen Branchen hat sich die Arbeitskräftesituation
+wieder verschärft. Am virulentesten ist das Thema in der Informations- und
+Kommunikationsbranche, im Gesundheitswesen und im Baugewerbe.
+\begin{figure}[h] \centering
+\includegraphics[width=1.1\linewidth]{/Users/simonwey/Repos/Hemmnisse_Docu/Graphics/myplot2.png}
+\caption{Erwerbslosenquoten in den sieben Grossregionen der Schweiz.}
+\end{figure}
+
+## Wie offene Stellen besetzen?
+
+Schweizerischen Arbeitgeberverband steht die Ausschöpfung des inländischen
+Arbeitskräftepotenzial weit oben auf der Prioritätenliste. Dabei bringt er sich insbesondere bei den
+Themen der Vereinbarkeit von Familie und Beruf und der verstärkten und nachhaltigen Einbindung von älteren Personen in den Arbeitsmarkt an vorderster Front bei der Erarbeitung von nachhaltigen
+Lösungen ein. Um dem Mangel an Fachkräften kurzfristig entgegenzutreten, muss eine
+Liberalisierung der zu restriktiven Zulassungskriterien für Drittstaatenangehörige ins Auge gefasst
+werden.
+\ref{fig:birds}
+\begin{figure}[h]
+  \centering
+    \includegraphics[width=1.1\linewidth]{/Users/simonwey/Repos/Report_Unemploy/Graphics/myplot3.png}
+    \caption{Plot of pressure against temperature}
+\end{figure}
+Der Ruf der Betriebe nach zusätzlichen Fachkräften ist somit kaum Gejammer. Viel mehr sind
+wirtschaftliche und politische Entwicklungen im Gange, die sich kumulieren und in der Summe den
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+
+## Schwierigkeiten bei der Rekrutierung
+
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+
+\begin{figure}[h]
+  \centering
+    \includegraphics[width=1.1\linewidth]{/Users/simonwey/Repos/Report_Unemploy/Graphics/myplot3.png}
+    \caption{Ausprägung der Schwierigkeiten bei der Suche nach Hochschulabgängern als Arbeitnehmende. }
+\end{figure}
+
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
+Mangel an Fachkräften akzentuieren. Der Aufschrei der Betriebe muss für die Politik ein Weckruf
+sein, dringend notwendige Massnahmen rasch in die Wege zu leiten. Denn ohne gesetzliche
+Anpassungen bleiben wirksame und nachhaltige Veränderungen Wunschdenken. Und, soll die
+Schweiz für Unternehmen attraktiv bleiben, so muss ein unbürokratischer Zugang zu Fachkräften
+gewährleistet sein.
